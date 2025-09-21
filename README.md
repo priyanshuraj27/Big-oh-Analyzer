@@ -219,10 +219,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🔗 Related Projects
-
-- **[Browser Extension](../extension)** - Frontend Chrome/Firefox extension
-- **[Demo](https://your-demo-url.com)** - Live demo of the extension
 
 ---
 
