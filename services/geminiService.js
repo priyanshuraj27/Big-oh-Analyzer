@@ -170,19 +170,49 @@ async function analyzeCodeComplexity(code, language = 'unknown', problemTitle = 
     return analysis;
     
   } catch (error) {
-    if (error.message.includes('API key')) {
+    console.error('Gemini API Error:', error);
+    
+    // Check for API key issues
+    if (error.message.includes('API key') || error.message.includes('API_KEY')) {
       throw new Error('Invalid or missing Gemini API key');
     }
     
-    if (error.message.includes('quota')) {
-      throw new Error('Gemini API quota exceeded');
+    // Check for rate limit/quota issues
+    if (error.message.includes('quota') || 
+        error.message.includes('rate limit') ||
+        error.message.includes('RATE_LIMIT_EXCEEDED') ||
+        error.message.includes('429') ||
+        error.status === 429 ||
+        error.code === 429) {
+      const rateLimitError = new Error('Gemini API rate limit exceeded');
+      rateLimitError.status = 429;
+      rateLimitError.code = 'RATE_LIMIT_EXCEEDED';
+      throw rateLimitError;
     }
     
-    if (error.message.includes('timeout')) {
-      throw new Error('Gemini API request timeout');
+    // Check for timeout issues
+    if (error.message.includes('timeout') || 
+        error.message.includes('TIMEOUT') ||
+        error.code === 'TIMEOUT') {
+      const timeoutError = new Error('Gemini API request timeout');
+      timeoutError.status = 504;
+      timeoutError.code = 'TIMEOUT';
+      throw timeoutError;
     }
     
-    throw new Error(`Analysis failed: ${error.message}`);
+    // Check for server errors from Gemini
+    if (error.status >= 500 || error.message.includes('server error')) {
+      const serverError = new Error('Gemini API server error');
+      serverError.status = 502;
+      serverError.code = 'UPSTREAM_ERROR';
+      throw serverError;
+    }
+    
+    // Generic error
+    const genericError = new Error(`Analysis failed: ${error.message}`);
+    genericError.status = 500;
+    genericError.originalError = error;
+    throw genericError;
   }
 }
 

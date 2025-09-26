@@ -68,30 +68,54 @@ router.post('/analyze', validateAnalyzeRequest, async (req, res) => {
   } catch (error) {
     console.error('Analysis error:', error);
     
+    // Handle rate limit errors (429) - prioritize this check
+    if (error.status === 429 || 
+        error.code === 'RATE_LIMIT_EXCEEDED' ||
+        error.message.includes('rate limit') || 
+        error.message.includes('quota') ||
+        error.message.includes('429')) {
+      return res.status(429).json({
+        error: 'Rate Limit Exceeded',
+        message: 'Gemini API rate limit exceeded. Please try again later.',
+        retryAfter: 60, // Suggest retry after 60 seconds
+        code: 'RATE_LIMIT_EXCEEDED'
+      });
+    }
+    
+    // Handle API key configuration errors
     if (error.message.includes('API key')) {
       return res.status(500).json({
         error: 'Configuration Error',
-        message: 'API service is not properly configured'
+        message: 'API service is not properly configured',
+        code: 'CONFIG_ERROR'
       });
     }
     
-    if (error.message.includes('quota') || error.message.includes('rate limit')) {
-      return res.status(429).json({
-        error: 'Rate Limit Exceeded',
-        message: 'API quota exceeded. Please try again later.'
-      });
-    }
-    
-    if (error.message.includes('timeout')) {
+    // Handle timeout errors (504)
+    if (error.status === 504 || 
+        error.code === 'TIMEOUT' ||
+        error.message.includes('timeout')) {
       return res.status(504).json({
-        error: 'Timeout',
-        message: 'Analysis took too long. Please try with shorter code.'
+        error: 'Gateway Timeout',
+        message: 'Analysis took too long. Please try with shorter code.',
+        code: 'TIMEOUT'
       });
     }
     
+    // Handle upstream server errors (502)
+    if (error.status === 502 || error.code === 'UPSTREAM_ERROR') {
+      return res.status(502).json({
+        error: 'Service Unavailable',
+        message: 'Gemini API is temporarily unavailable. Please try again later.',
+        code: 'UPSTREAM_ERROR'
+      });
+    }
+    
+    // Generic server error (500)
     res.status(500).json({
       error: 'Analysis Failed',
-      message: 'Unable to analyze the code. Please try again.'
+      message: 'Unable to analyze the code. Please try again.',
+      code: 'INTERNAL_ERROR'
     });
   }
 });
@@ -111,5 +135,17 @@ router.get('/status', (req, res) => {
     }
   });
 });
+
+// Test endpoint to simulate rate limit error (for development/testing only)
+if (process.env.NODE_ENV === 'development') {
+  router.post('/test-rate-limit', (req, res) => {
+    return res.status(429).json({
+      error: 'Rate Limit Exceeded',
+      message: 'Gemini API rate limit exceeded. Please try again later.',
+      retryAfter: 60,
+      code: 'RATE_LIMIT_EXCEEDED'
+    });
+  });
+}
 
 module.exports = router;
