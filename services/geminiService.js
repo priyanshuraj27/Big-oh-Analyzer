@@ -1,7 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 function createAnalysisPrompt(code, language, problemTitle) {
   return `You are an expert software engineer specializing in algorithm analysis and code optimization. 
@@ -175,6 +175,17 @@ async function analyzeCodeComplexity(code, language = 'unknown', problemTitle = 
     // Check for API key issues
     if (error.message.includes('API key') || error.message.includes('API_KEY')) {
       throw new Error('Invalid or missing Gemini API key');
+    }
+    
+    // Check for model access issues
+    if (error.message.includes('was not found') || 
+        error.message.includes('does not have access') ||
+        error.message.includes('404 Not Found') ||
+        error.status === 404) {
+      const modelError = new Error('Gemini model not accessible');
+      modelError.status = 502;
+      modelError.code = 'MODEL_ACCESS_ERROR';
+      throw modelError;
     }
     
     // Check for rate limit/quota issues

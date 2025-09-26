@@ -91,6 +91,16 @@ router.post('/analyze', validateAnalyzeRequest, async (req, res) => {
       });
     }
     
+    // Handle model access errors
+    if (error.code === 'MODEL_ACCESS_ERROR' || 
+        error.message.includes('model not accessible')) {
+      return res.status(502).json({
+        error: 'Service Configuration Error',
+        message: 'AI model is not accessible. Please try again later.',
+        code: 'MODEL_ACCESS_ERROR'
+      });
+    }
+    
     // Handle timeout errors (504)
     if (error.status === 504 || 
         error.code === 'TIMEOUT' ||
